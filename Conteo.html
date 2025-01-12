@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conteo de Votos</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.min.js"></script> <!-- Incluir jsQR -->
+  <link rel="stylesheet" type="text/css" href="/styles.css">
+</head>
+<body>
+  <h1>Conteo de Votos</h1>
+  
+  <!-- Formulario para agregar votos -->
+  <form id="votoForm" action="/agregar-voto" method="POST">
+    <div id="candidatos">
+      <!-- Los datos de los candidatos se cargarán dinámicamente aquí -->
+    </div>
+    
+    <label for="votos_nulos">Votos Nulos:</label>
+    <input type="number" id="votos_nulos" name="votos_nulos" required readonly><br><br>
+    
+    <label for="votos_blancos">Votos Blancos:</label>
+    <input type="number" id="votos_blancos" name="votos_blancos" required readonly><br><br>
+
+    <label for="provincia">Provincia:</label>
+    <input type="text" id="provincia" name="provincia" required readonly><br><br>
+    
+    <!-- Campo Canton sin tilde -->
+    <label for="canton">Canton:</label>
+    <input type="text" id="canton" name="canton" required readonly><br><br>
+    
+    <label for="codigo_unico">Código Único:</label>
+    <input type="text" id="codigo_unico" name="codigo_unico" required readonly><br><br>
+    
+    <button type="submit" class="btn" id="agregarVotosButton" disabled>Agregar Voto</button>
+  </form>
+  
+  <h2>Escanear Código QR:</h2>
+  
+  <!-- Entrada para cargar imagen -->
+  <input type="file" id="qrImageInput" accept="image/*"><br><br>
+  
+  <canvas id="qrCanvas" style="display: none;"></canvas> <!-- Canvas para decodificar imagen -->
+  <p><a href="/logout" class="btn">Cerrar sesión</a></p>
+
+  <script>
+    document.getElementById("qrImageInput").addEventListener("change", function(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        
+        // Lee la imagen seleccionada
+        reader.onload = function(e) {
+          const img = new Image();
+          img.src = e.target.result;
+          img.onload = function() {
+            // Configuración del canvas para procesar la imagen
+            const canvas = document.getElementById("qrCanvas");
+            const ctx = canvas.getContext("2d");
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0, img.width, img.height);
+            
+            // Obtiene los datos del QR de la imagen cargada
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const qrCode = jsQR(imageData.data, canvas.width, canvas.height);
+
+            if (qrCode) {
+              // Decodificar los datos JSON del código QR
+              try {
+                const decodedData = JSON.parse(qrCode.data); // Parsear el JSON
+                
+                // Llenar los campos del formulario con los candidatos y sus votos
+                const candidatosDiv = document.getElementById("candidatos");
+                candidatosDiv.innerHTML = ""; // Limpiar los campos anteriores
+
+                decodedData.candidatos.forEach((candidato, index) => {
+                  candidatosDiv.innerHTML += `
+                    <h3>Nombre del Candidato:</h3>
+                    <input type="text" id="nombre_candidato_${index}" name="nombre_candidato_${index}" value="${candidato.nombre_candidato}" readonly><br><br>
+
+                    <label for="votos_${index}">${candidato.nombre_candidato} Votos:</label>
+                    <input type="number" id="votos_${index}" name="votos_${index}" value="${candidato.votos}" readonly><br><br>
+                  `;
+                });
+
+                // Rellenar los campos de provincia, canton, código único, votos nulos y blancos
+                document.getElementById("provincia").value = decodedData.provincia;
+                document.getElementById("canton").value = decodedData.canton;  // Llenar campo canton
+                document.getElementById("codigo_unico").value = decodedData.codigo_unico;
+                document.getElementById("votos_nulos").value = decodedData.votos_nulos;
+                document.getElementById("votos_blancos").value = decodedData.votos_blancos;
+
+                // Habilitar el botón de agregar votos
+                document.getElementById("agregarVotosButton").disabled = false;
+
+              } catch (e) {
+                console.error("Error al parsear el QR:", e);
+              }
+            } else {
+              alert("Código QR no válido.");
+            }
+          };
+        };
+        
+        reader.readAsDataURL(file);
+      }
+    });
+  </script>
+</body>
+</html>
+
